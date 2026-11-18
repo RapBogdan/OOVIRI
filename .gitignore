@@ -1,0 +1,15 @@
+# mediul Python local
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# date mari si rezultate generate (se refac cu comenzile din README)
+data/*
+!data/README.md
+!data/photos/
+outputs/
+assets/sprites/
+
+# note personale, nu fac parte din proiect
+note_personale/
