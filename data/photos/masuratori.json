@@ -1,0 +1,63 @@
+{
+  "telefon": {
+    "model": "Motorola Edge 60, camera principala la 1x",
+    "focal35": 24,
+    "sursa": "GSMArena da 24 mm; PhoneArena da 25 mm"
+  },
+  "cum_citesc": "pixel = pozitia punctului in poza; distanta_podea = metri pe podea, de sub telefon pana sub punct; inaltime = cat e punctul deasupra podelei; adancime = distanta folosita direct ca adancime (aproximativ)",
+  "poze": {
+    "foto_01_scaun_lateral": {
+      "dimensiune": [1200, 1600],
+      "inaltime_telefon": null,
+      "puncte": [],
+      "masurat": "fara masuratori"
+    },
+    "foto_02_scaun_fata": {
+      "dimensiune": [1500, 2000],
+      "inaltime_telefon": 0.85,
+      "puncte": [
+        {"nume": "piciorul din fata dreapta, la podea", "pixel": [925, 1470], "distanta_podea": 1.18, "inaltime": 0.0},
+        {"nume": "piciorul din spate dreapta, la podea", "pixel": [825, 1255], "distanta_podea": 1.60, "inaltime": 0.0},
+        {"nume": "perdeaua la podea, in dreapta scaunului", "pixel": [1000, 1078], "distanta_podea": 2.30, "inaltime": 0.0}
+      ],
+      "masurat": "telefon - picior fata 1.18; picioare fata - spate 0.42; picior spate - perdea 0.70; telefon la 0.80-0.90 de la podea"
+    },
+    "foto_03_rucsac": {
+      "dimensiune": [1500, 2000],
+      "inaltime_telefon": 0.85,
+      "puncte": [
+        {"nume": "baza rucsacului, in fata", "pixel": [770, 1240], "distanta_podea": 1.20, "inaltime": 0.0}
+      ],
+      "masurat": "telefon - rucsac 1.20; in lateral, perdea - marginea din stanga a rucsacului 0.30; telefon la 0.80-0.90 de la podea"
+    },
+    "foto_04_monitor": {
+      "dimensiune": [1500, 2000],
+      "inaltime_telefon": null,
+      "puncte": [
+        {"nume": "ecranul monitorului, centru", "pixel": [500, 930], "adancime": 1.28},
+        {"nume": "peretele din dreapta monitorului", "pixel": [1150, 900], "adancime": 1.53}
+      ],
+      "masurat": "telefon - marginea biroului 1.02; telefon - monitor 1.28; monitor - perete 0.25",
+      "nota": "inaltimea telefonului la aceasta poza nu e clara, deci distantele sunt folosite direct, cu o eroare de cativa centimetri"
+    },
+    "foto_05_usa": {
+      "dimensiune": [1500, 2000],
+      "inaltime_telefon": 1.30,
+      "puncte": [
+        {"nume": "baza usii de vizavi, la podea", "pixel": [800, 1445], "distanta_podea": 2.60, "inaltime": 0.0},
+        {"nume": "tocul usii proprii, stanga", "pixel": [215, 800], "adancime": 0.99}
+      ],
+      "masurat": "telefon - tocul usii proprii 1.00; toc - usa de vizavi 1.60; telefon la 1.30 de la podea"
+    },
+    "foto_06_oglinda": {
+      "dimensiune": [1500, 2000],
+      "inaltime_telefon": null,
+      "puncte": [
+        {"nume": "geanta, fata dinspre telefon", "pixel": [720, 1130], "adancime": 0.80},
+        {"nume": "peretele din dreapta oglinzii", "pixel": [1150, 700], "adancime": 1.00}
+      ],
+      "masurat": "telefon - perete 1.00; perete - fata gentii 0.20",
+      "nota": "inaltimea telefonului la aceasta poza nu e cunoscuta, deci distantele sunt folosite direct"
+    }
+  }
+}
