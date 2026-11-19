@@ -1,15 +1,40 @@
-# mediul Python local
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
-
-# date mari si rezultate generate (se refac cu comenzile din README)
+# Prea mari pentru Git; se descarcă / generează local
+# modelele Hugging Face, descărcate la prima rulare
+models/
+.hf_home/
+# setul NYU, descărcat cu scripts/download_nyu.py; fotografiile proprii rămân în Git
 data/*
 !data/README.md
 !data/photos/
+# rezultatele generate
 outputs/
 assets/sprites/
+*.npy
+*.pt
+*.pth
+*.safetensors
+CLAUDE.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Gradio / editor
+.gradio/
+flagged/
+.vscode/
+.idea/
+# din docs/ rămân în Git doar imaginile folosite în README
+docs/*
+!docs/img/
+
+# Fișiere de blocare LibreOffice / Word
+.~lock.*#
+~$*
 
 # note personale, nu fac parte din proiect
 note_personale/
