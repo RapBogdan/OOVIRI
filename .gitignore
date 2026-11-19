@@ -1,0 +1,33 @@
+# Prea mari pentru Git; se descarcă / generează local
+# modelele Hugging Face, descărcate la prima rulare
+models/
+# setul NYU, descărcat cu scripts/download_nyu.py
+data/
+# rezultatele generate
+outputs/
+*.npy
+*.pt
+*.pth
+*.safetensors
+CLAUDE.md
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+
+# Gradio / editor
+.gradio/
+flagged/
+.vscode/
+.idea/
+docs/
+
+# Fișiere de blocare LibreOffice / Word
+.~lock.*#
+~$*
+
+# note personale, nu fac parte din proiect
+note_personale/

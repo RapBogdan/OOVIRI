@@ -1,0 +1,10 @@
+# Pe Windows cu GPU NVIDIA, înainte de restul (altfel pip instalează torch doar pentru CPU):
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu132
+torch
+torchvision
+transformers
+numpy
+pillow
+matplotlib
+jupyter
+pyarrow
