@@ -40,4 +40,16 @@ Comanda afișează, pentru fiecare punct, adâncimea așteptată, cea din hartă
 
 Verificare internă: la `foto_02_scaun_fata`, cele trei puncte de pe podea implică aceeași înclinare a telefonului (17,0, 17,6 și 17,1 grade), deci distanțele, înălțimea telefonului și distanța focală se potrivesc între ele.
 
+La `foto_05_usa` gresia e pătrată, cu latura de 30 cm. Pasul dintre liniile de gresie, dedus doar din poză (înălțimea telefonului, înclinarea și distanța focală), iese 0,29-0,30 m. Trei dintre linii sunt folosite ca puncte de control: distanța până la ușa de vizavi minus un număr întreg de plăci.
+
 La `foto_04_monitor` și `foto_06_oglinda` înălțimea telefonului nu e cunoscută, deci distanțele sunt folosite direct ca adâncime și sunt marcate ca aproximative.
+
+## Calibrarea scării și plasările
+
+Pe aceste poze hărțile de adâncime supraestimează distanțele cu 25% până la 85%. De aceea `ooviri batch --measurements masuratori.json` corectează fiecare model pe punctele măsurate ale pozei:
+
+- cu cel puțin două puncte aflate clar la adâncimi diferite: scară și decalaj (`adevărat = a x hartă + b`);
+- cu un singur punct, sau cu puncte la aproape aceeași adâncime: doar scară;
+- fără puncte (`foto_01_scaun_lateral`): fără calibrare.
+
+`plasari.json` conține cazurile rulate. Adâncimea obiectului nu e dată în metri, ci între două repere din poză (`z_intre`): de exemplu la jumătatea distanței dintre spătarul scaunului și perdea. Așa obiectul ajunge sigur în spatele unui lucru și în fața altuia, oricare ar fi scara hărții.

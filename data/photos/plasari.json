@@ -1,0 +1,31 @@
+{
+  "_cum_citesc": "Pentru fiecare poza, o lista de cazuri. x, y = centrul obiectului in pixelii pozei. z_intre = adancimea e aleasa intre doua lucruri din poza: fata si spate sunt pixeli, t=0.5 inseamna la jumatatea distantei dintre ele. culoare = RGB.",
+  "foto_02_scaun_fata": [
+    {"nume": "sfera_dupa_spatar", "sprite": "sphere", "culoare": [40, 120, 255], "x": 800, "y": 800,
+     "z_intre": {"fata": [585, 780], "spate": [1000, 700], "t": 0.5}},
+    {"nume": "cub_dupa_picioare", "sprite": "box", "culoare": [40, 120, 255], "x": 640, "y": 1130,
+     "z_intre": {"fata": [825, 1255], "spate": [1000, 1078], "t": 0.5}}
+  ],
+  "foto_01_scaun_lateral": [
+    {"nume": "sfera_dupa_scaun", "sprite": "sphere", "culoare": [40, 120, 255], "x": 640, "y": 560,
+     "z_intre": {"fata": [470, 560], "spate": [150, 500], "t": 0.5}}
+  ],
+  "foto_03_rucsac": [
+    {"nume": "sfera_dupa_rucsac", "sprite": "sphere", "culoare": [40, 120, 255], "scale": 0.6, "x": 1010, "y": 980,
+     "z_intre": {"fata": [790, 1000], "spate": [1250, 900], "t": 0.6}},
+    {"nume": "sfera_langa_perdea", "sprite": "sphere", "culoare": [40, 120, 255], "x": 390, "y": 900,
+     "z_intre": {"fata": [150, 900], "spate": [550, 600], "t": 0.5}}
+  ],
+  "foto_04_monitor": [
+    {"nume": "sfera_dupa_monitor", "sprite": "sphere", "culoare": [40, 120, 255], "scale": 0.5, "x": 960, "y": 1000,
+     "z_intre": {"fata": [500, 930], "spate": [1150, 900], "t": 0.6}}
+  ],
+  "foto_05_usa": [
+    {"nume": "sfera_dupa_toc", "sprite": "sphere", "culoare": [40, 120, 255], "x": 330, "y": 1050,
+     "z_intre": {"fata": [215, 800], "spate": [800, 900], "t": 0.5}}
+  ],
+  "foto_06_oglinda": [
+    {"nume": "sfera_dupa_geanta", "sprite": "sphere", "culoare": [40, 120, 255], "scale": 0.4, "x": 1070, "y": 1120,
+     "z_intre": {"fata": [720, 1130], "spate": [1150, 700], "t": 0.9}}
+  ]
+}

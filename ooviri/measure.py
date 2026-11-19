@@ -92,3 +92,61 @@ def sample_depth(depth: np.ndarray, pixel: tuple[float, float], photo_size: tupl
     patch = depth[max(0, y - window):y + window + 1, max(0, x - window):x + window + 1]
     good = patch[np.isfinite(patch) & (patch > 0)]
     return float(np.median(good)) if good.size else float("nan")
+
+
+@dataclass(frozen=True)
+class Calibration:
+    """Correction of a depth map from tape-measured points: true = scale * predicted + offset."""
+
+    scale: float
+    offset: float
+    kind: str      # "afin" (scale and offset) or "scara" (scale only)
+    n_points: int
+
+    def apply(self, depth: np.ndarray) -> np.ndarray:
+        return np.maximum(self.scale * np.asarray(depth, np.float32) + self.offset, 0.05).astype(np.float32)
+
+
+def fit_calibration(predicted, true, min_spread: float = 0.15) -> Calibration:
+    """Least-squares correction from pairs (depth in the map, depth measured with the tape).
+
+    Scale and offset need at least two points that are clearly apart in depth, both in
+    the map and in reality; with one point, or points at nearly the same depth, a line
+    through them would be arbitrary, so only the scale is fitted.
+    """
+    p, t = np.asarray(predicted, np.float64), np.asarray(true, np.float64)
+    ok = np.isfinite(p) & (p > 0) & np.isfinite(t) & (t > 0)
+    p, t = p[ok], t[ok]
+    if p.size == 0:
+        raise ValueError("no usable control point")
+    if p.size >= 2 and np.ptp(p) / p.mean() >= min_spread and np.ptp(t) / t.mean() >= min_spread:
+        a, b = np.polyfit(p, t, 1)
+        if a > 0:
+            return Calibration(float(a), float(b), "afin", int(p.size))
+    return Calibration(float((p * t).sum() / (p * p).sum()), 0.0, "scara", int(p.size))
+
+
+def calibrate_depth(depth: np.ndarray, points: list[ControlPoint],
+                    photo_size: tuple[int, int]) -> tuple[np.ndarray, Calibration]:
+    """Correct one depth map with the photo's control points."""
+    predicted = [sample_depth(depth, pt.pixel, photo_size) for pt in points]
+    cal = fit_calibration(predicted, [pt.depth for pt in points])
+    return cal.apply(depth), cal
+
+
+def leave_one_out(depth: np.ndarray, points: list[ControlPoint], photo_size: tuple[int, int]) -> list[float] | None:
+    """Honest error of the calibration: fit on all points but one, test on the one left out.
+
+    Returns the relative error at each point, or None with fewer than three points
+    (nothing would be left to test on).
+    """
+    if len(points) < 3:
+        return None
+    predicted = [sample_depth(depth, pt.pixel, photo_size) for pt in points]
+    errors = []
+    for i, pt in enumerate(points):
+        rest_p = [p for j, p in enumerate(predicted) if j != i]
+        rest_t = [q.depth for j, q in enumerate(points) if j != i]
+        cal = fit_calibration(rest_p, rest_t)
+        errors.append((cal.scale * predicted[i] + cal.offset - pt.depth) / pt.depth)
+    return errors

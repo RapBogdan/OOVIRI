@@ -9,6 +9,11 @@ Note on route B. With exactly three voters and weights that are accuracies (all 
 as route A. `same_as_majority` checks this for a given set of weights. Route B-soft
 lets a model that is very sure outvote two that are barely on the other side, which
 is the behaviour "weighted" was meant to buy.
+
+Note on route C (P1: per-pixel median of the three depth maps, then one depth test).
+The median of three depths is in front of the object exactly when at least two of
+them are, so the occlusion mask of route C is always the mask of route A. Route C is
+still a better depth map than each model, but for occlusion it cannot differ from A.
 """
 from __future__ import annotations
 

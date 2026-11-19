@@ -1,0 +1,6 @@
+{
+  "_sursa": "README din branch-ul bogdan-p1 (19 noiembrie 2026): NYU Depth V2 test, 654 de imagini, crop Eigen, cu aliniere pe ZoeDepth, adica situatia de pe fotografiile proprii. Provizoriu: weight = delta1, pana cand P1 masoara ponderile pentru ruta B.",
+  "depth_anything_v2": {"weight": 0.893, "abs_rel": 0.105},
+  "midas": {"weight": 0.853, "abs_rel": 0.122},
+  "zoedepth": {"weight": 0.936, "abs_rel": 0.084}
+}

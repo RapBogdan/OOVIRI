@@ -103,6 +103,46 @@ def test_cli_run_on_files(scene, tmp_path):
     assert (tmp_path / "out" / "panouri" / "img__ar.png").exists()
 
 
+def test_cli_run_reads_the_flat_layout_written_by_depth_run(scene, tmp_path, capsys):
+    """<id>_<model>.npy in one folder; a "ruta_C" map gets its own mask but does not vote."""
+    rgb, gt, depths = scene
+    Image.fromarray(rgb).save(tmp_path / "0001.png")
+    for name, d in depths.items():
+        np.save(tmp_path / f"0001_{name}.npy", d)
+    np.save(tmp_path / "0001_ruta_C.npy", np.median(np.stack(list(depths.values())), axis=0))
+    np.save(tmp_path / "00012_alta_imagine.npy", gt)            # another image's file must not be picked up
+    out = tmp_path / "out"
+    assert main(["run", "--rgb", str(tmp_path / "0001.png"), "--depth-dir", str(tmp_path), "--id", "0001",
+                 "--x", "262", "--y", "300", "--z", "1.72", "--out", str(out)]) == 0
+    printed = capsys.readouterr().out
+    assert "ruta C da exact aceeasi masca ca ruta A" in printed and "alta_imagine" not in printed
+    report = json.loads((out / "0001__raport.json").read_text(encoding="utf-8"))
+    assert set(report["priors"]) == set(depths)                 # the three models voted, route C did not
+    assert report["ruta_C_identica_cu_A"] is True and report["pixeli_cu_dezacord"] > 0
+    assert (out / "masti" / "0001__ruta_C.png").exists() and (out / "ar" / "0001__ruta_C.png").exists()
+
+
+def test_cli_batch_runs_a_placements_file(scene, tmp_path):
+    rgb, _, depths = scene
+    images, maps, out = tmp_path / "img", tmp_path / "maps", tmp_path / "out"
+    images.mkdir()
+    maps.mkdir()
+    Image.fromarray(rgb).save(images / "0001.png")
+    for name, d in depths.items():
+        np.save(maps / f"0001_{name}.npy", d)
+    plan = {"_nota": "ignorat", "0001": [
+        {"nume": "sfera", "sprite": "sphere", "x": 300, "y": 300, "z": 2.0},
+        {"nume": "cub", "sprite": "box", "x": 360, "y": 335, "z": 3.2, "scale": 1.0},
+    ]}
+    (tmp_path / "plan.json").write_text(json.dumps(plan), encoding="utf-8")
+    assert main(["batch", "--placements", str(tmp_path / "plan.json"), "--images", str(images),
+                 "--depth-dir", str(maps), "--out", str(out)]) == 0
+    assert (out / "panouri" / "0001__sfera__ar.png").exists() and (out / "masti" / "0001__cub__ruta_A.png").exists()
+    lines = (out / "rezumat.csv").read_text(encoding="utf-8").strip().splitlines()
+    assert len(lines) == 3 and lines[0].startswith("imagine,caz,calibrat,z_m,pixeli_obiect,dezacord")
+    assert lines[1].split(",")[2] == "nu"                       # no measurements given, so no calibration
+
+
 def test_cli_preview_draws_the_object_without_occlusion(scene, tmp_path):
     rgb, _, _ = scene
     Image.fromarray(rgb).save(tmp_path / "img.png")

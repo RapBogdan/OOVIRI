@@ -12,10 +12,12 @@ Proiectul abordeaza ocluzia in realitatea augmentata: obiectele virtuale apar pe
 | Ruta B-soft (vot ponderat cu margine), propunere | P2 | gata, testat |
 | Compunere AR și panouri side-by-side | P2 | gata, testat |
 | Fotografii proprii: 6 poze și puncte de control măsurate cu ruleta | P2 | gata |
-| Cele 3 modele de adâncime, aliniate în metri | P1 | de adăugat |
-| Rezultate pe imagini reale (NYU Depth V2, fotografii proprii) | P1 + P2 | după hărțile de adâncime |
+| Calibrarea scării pe puncte măsurate, pentru fotografiile proprii | P2 | gata, testat |
+| Cele 3 modele de adâncime, aliniate în metri, și ruta C | P1 | gata, pe branch-ul `bogdan-p1` |
+| Ocluzie pe fotografiile proprii, cu cele 3 modele și toate rutele | P1 + P2 | primele rezultate, mai jos |
+| Evaluarea ocluziei pe NYU Depth V2 (IoU, F1) | P1 + P2 | urmează |
 
-Deocamdată rezultatele din `outputs/` vin dintr-o scenă sintetică și din modele de adâncime simulate. Ele verifică lanțul de prelucrare, nu sunt rezultate ale proiectului.
+Demo-ul din `outputs/demo_sintetic` folosește o scenă sintetică și modele de adâncime simulate: verifică lanțul de prelucrare, nu este un rezultat al proiectului. Rezultatele pe imagini reale sunt în secțiunea „Rezultate pe fotografiile proprii”.
 
 ![Demo sintetic: sfera virtuală intersectează stâlpul](docs/img/demo_sfera_prin_stalp.png)
 
@@ -35,7 +37,9 @@ ooviri/
   measure.py     puncte de control măsurate cu ruleta, pentru fotografiile proprii
   synthetic.py   scenă sintetică și modele simulate, doar pentru dezvoltare și teste
   cli.py         linia de comandă
-tests/           47 de teste automate
+tests/           53 de teste automate
+scripts/         harti_poze.py: hărțile de adâncime ale pozelor proprii, cu codul P1
+config/          priors.json: ponderile și erorile modelelor, pentru rutele B și B-soft
 docs/img/        imagini pentru README
 data/            fotografiile proprii sunt în Git; restul datelor sunt locale (vezi data/README.md)
 ```
@@ -83,6 +87,53 @@ Cele șase poze sunt în `data/photos/`, împreună cu `masuratori.json`. Ce hă
 
 ![Puncte de control măsurate](docs/img/foto_puncte_control.jpg)
 
+## Rezultate pe fotografiile proprii
+
+Hărțile de adâncime vin din codul P1 (`depth/`, branch-ul `bogdan-p1`), rulat pe cele șase poze: ZoeDepth dă metri, iar Depth Anything V2 și MiDaS sunt aliniate pe ZoeDepth.
+
+**1. Scara în metri e supraestimată pe pozele noastre.** Față de punctele măsurate cu ruleta, hărțile dau cu 25% până la 85% mai mult, iar la scena de aproape, cu oglinda, peste 100%. Forma scenei e bună; greșită e scara. Cele trei modele greșesc la fel, pentru că două dintre ele moștenesc scara lui ZoeDepth.
+
+**2. Două-trei puncte măsurate repară scara.** La `foto_02_scaun_fata`, care are trei puncte, calibrăm pe două și verificăm pe al treilea. Eroarea rămasă este de 1-2% la ZoeDepth, 3-7% la Depth Anything V2 și până la 16% la MiDaS. La ZoeDepth corecția este aproape o simplă scădere de circa 1 m. La `foto_05_usa`, cu cinci puncte, eroarea ZoeDepth la punctele de pe podea lăsate deoparte este tot de 1-2%; la tocul ușii, aflat mult mai aproape decât restul punctelor, urcă la 8%.
+
+Măsurătorile se verifică și între ele: în `foto_05_usa`, pasul dintre liniile de gresie, dedus doar din poză, iese 0,29-0,30 m, față de 0,30 m măsurat.
+
+**3. Pentru masca de ocluzie, rutele A, B și C dau același rezultat.** În toate cele opt cazuri de mai jos măștile lor sunt identice pixel cu pixel. Explicația este în secțiunea „Rutele de vot”. Doar B-soft diferă.
+
+Cât din obiect este marcat ca ascuns, pe fiecare model și rută:
+
+| Poză și caz | Depth Anything V2 | MiDaS | ZoeDepth | Rutele A, B, C | B-soft | Modelele se contrazic |
+| --- | --- | --- | --- | --- | --- | --- |
+| scaun din față, sferă după spătar | 48% | 50% | 47% | 48% | 48% | 4% |
+| scaun din față, cub după picioare | 72% | 63% | 77% | 72% | 72% | 17% |
+| scaun din lateral, sferă (necalibrat) | 0% | 16% | 0% | 0% | 0% | 16% |
+| rucsac, sferă după rucsac | 16% | 14% | 19% | 16% | 18% | 6% |
+| rucsac, sferă lângă perdea | 1% | 0% | 4% | 1% | 2% | 4% |
+| monitor, sferă după monitor | 3% | 26% | 31% | 24% | 19% | 31% |
+| ușă, sferă după toc | 53% | 55% | 56% | 55% | 55% | 3% |
+| oglindă, sferă după geantă | 3% | 3% | 5% | 3% | 4% | 4% |
+
+Pe fotografiile proprii nu există mască de referință, deci tabelul arată cât se contrazic modelele, nu cine are dreptate. Ultima coloană este partea din obiect pe care cele trei modele nu votează la fel.
+
+Scaunul: fără ocluzie sfera apare peste spătar; cu ocluzie, spătarul o acoperă.
+
+![Ocluzie pe fotografia cu scaunul](docs/img/foto_ocluzie_scaun.jpg)
+
+Monitorul, un caz greu: ecranul negru lucios e văzut diferit de fiecare model. Roșu = ascuns; în harta voturilor, galben și portocaliu = modelele se contrazic.
+
+![Voturile pe fotografia cu monitorul](docs/img/foto_voturi_monitor.jpg)
+
+Reproducere:
+
+```bash
+.venv\Scripts\python scripts/harti_poze.py <folderul cu codul P1> data/photos data/depth
+.venv\Scripts\python -m ooviri check --photo foto_02_scaun_fata --depth-dir data/depth
+.venv\Scripts\python -m ooviri batch --placements data/photos/plasari.json --images data/photos --depth-dir data/depth --priors config/priors.json --measurements data/photos/masuratori.json --focal35 24 --out outputs/foto_real
+```
+
+- `scripts/harti_poze.py` face aceiași pași ca `depth.run` din codul P1, fără panoul desenat cu matplotlib, care pe unul dintre calculatoarele noastre e blocat de o politică Windows de control al aplicațiilor.
+- `batch` calibrează fiecare model pe punctele măsurate ale pozei, alege adâncimea obiectului între două repere din poză (`z_intre` în `plasari.json`) și scrie măștile, imaginile AR, panourile și `rezumat.csv`.
+- `config/priors.json` conține ponderi provizorii, luate din evaluarea P1 pe NYU.
+
 ## Contractul de date între P1 și P2
 
 P2 primește, pentru fiecare imagine și fiecare model, o hartă de adâncime `float32`, în metri, aliniată, la rezoluția imaginii, salvată ca `.npy`. Structura folderelor și formatul `priors.json` sunt în [data/README.md](data/README.md).
@@ -93,7 +144,14 @@ P2 primește, pentru fiecare imagine și fiecare model, o hartă de adâncime `f
 - **Ruta B, vot ponderat:** ca A, dar fiecare vot cântărește cât acuratețea modelului.
 - **Ruta B-soft, vot ponderat cu margine:** fiecare model votează cu o încredere între 0 și 1, calculată din cât de departe e suprafața reală de cea virtuală, raportat la eroarea lui tipică.
 
-Observație: cu trei modele și ponderi egale cu acuratețea, oricare două modele depășesc mereu al treilea, deci ruta B dă exact aceeași mască ca ruta A. Funcția `voting.same_as_majority` verifică asta pentru orice set de ponderi. De aceea am adăugat ruta B-soft, în care un model foarte sigur poate depăși două modele nesigure.
+- **Ruta C, fuziune la nivel de adâncime (P1):** mediana celor trei hărți, apoi un singur test de adâncime.
+
+Două observații, verificate în teste și pe fotografiile proprii:
+
+- **B = A.** Cu trei modele și ponderi egale cu acuratețea, oricare două modele depășesc mereu al treilea, deci ruta B dă exact aceeași mască ca ruta A. Funcția `voting.same_as_majority` verifică asta pentru orice set de ponderi.
+- **C = A.** Mediana a trei adâncimi este în fața obiectului exact atunci când cel puțin două dintre ele sunt în față. Deci testul pe mediană dă aceeași mască ca votul majoritar. Ruta C rămâne o hartă de adâncime mai bună decât fiecare model, dar pentru ocluzie nu poate diferi de A.
+
+De aceea am adăugat ruta B-soft, în care un model foarte sigur poate depăși două modele nesigure. Este singura dintre cele patru care poate schimba masca.
 
 ## Teste
 

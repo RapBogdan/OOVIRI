@@ -11,17 +11,17 @@ import numpy as np
 from .camera import NYU, Camera
 from .compose import compose
 from .depthio import load_depth, load_rgb, save_image
-from .measure import load_control_points, sample_depth
+from .measure import calibrate_depth, leave_one_out, load_control_points, sample_depth
 from .pipeline import ModelPrior, load_priors, run, save_outputs
 from .placement import Placement, place, random_placements, sprite_pixel_size
 from .sprite import PRIMITIVES, Sprite, make_box, make_cylinder, make_sphere
 from .synthetic import make_scene, simulate_models
 
 
-def _sprite(spec: str) -> Sprite:
-    """'sphere' / 'box' / 'cylinder', or 'folder:name' for a sprite saved on disk."""
+def _sprite(spec: str, color=None) -> Sprite:
+    """'sphere' / 'box' / 'cylinder' (optionally in another colour), or 'folder:name' for a saved sprite."""
     if spec in PRIMITIVES:
-        return PRIMITIVES[spec]()
+        return PRIMITIVES[spec](color=tuple(color)) if color else PRIMITIVES[spec]()
     if ":" in spec:
         directory, name = spec.rsplit(":", 1)
         return Sprite.load(directory, name)
@@ -35,18 +35,33 @@ def _camera(args, w: int, h: int) -> Camera:
     return NYU.resized(w, h) if args.camera == "nyu" else Camera.from_fov(w, h, args.hfov)
 
 
+def _flat_depth_maps(directory: str, image_id: str) -> tuple[dict[str, np.ndarray], dict[str, np.ndarray]]:
+    """Read <dir>/<id>_<model>.npy (the layout written by depth.run); "ruta_*" maps do not vote."""
+    voters: dict[str, np.ndarray] = {}
+    extras: dict[str, np.ndarray] = {}
+    prefix = f"{image_id}_"
+    for f in sorted(Path(directory).glob(f"{image_id}_*.npy")):
+        name = f.stem[len(prefix):]
+        (extras if name.startswith("ruta_") else voters)[name] = load_depth(f)
+    return voters, extras
+
+
 def _print_scores(stem: str, result) -> None:
-    print(f"\n{stem}: {int(result.placed.footprint.sum())} pixeli de obiect")
-    for name in list(result.model_masks) + [f"ruta_{r}" for r in result.route_masks]:
-        mask = result.model_masks.get(name)
-        if mask is None:
-            mask = result.route_masks[name.removeprefix("ruta_")]
-        line = f"  {name:<14} ocluzati {int(mask.sum()):>6}"
+    footprint = int(result.placed.footprint.sum())
+    print(f"\n{stem}: {footprint} pixeli de obiect")
+    masks = {**result.model_masks, **{f"ruta_{r}": m for r, m in result.route_masks.items()}, **result.extra_masks}
+    for name, mask in masks.items():
+        line = f"  {name:<18} ocluzati {int(mask.sum()):>7} ({mask.sum() / max(footprint, 1):.0%})"
         if name in result.scores:
             line += f"   IoU {result.scores[name]['iou']:.3f}   F1 {result.scores[name]['f1']:.3f}"
         print(line)
+    disagree = int(((result.counts > 0) & (result.counts < len(result.model_masks))).sum())
+    print(f"  modelele se contrazic pe {disagree} pixeli ({disagree / max(footprint, 1):.1%} din obiect)")
     if result.b_equals_a:
         print("  nota: cu aceste ponderi ruta B da mereu aceeasi masca ca ruta A")
+    if "ruta_C" in result.extra_masks:
+        same = np.array_equal(result.extra_masks["ruta_C"], result.route_masks["A"])
+        print(f"  ruta C {'da exact aceeasi masca ca' if same else 'difera de'} ruta A")
 
 
 def cmd_sprites(args) -> int:
@@ -95,8 +110,20 @@ def cmd_run(args) -> int:
             candidate = sub / f"{args.id}.npy"
             if sub.is_dir() and candidate.exists():
                 depths[sub.name] = load_depth(candidate)
+    extras: dict[str, np.ndarray] = {}
+    if args.depth_dir:
+        if not args.id:
+            raise SystemExit("--depth-dir are nevoie si de --id")
+        voters, extras = _flat_depth_maps(args.depth_dir, args.id)
+        depths.update(voters)
+    for item in args.extra or []:
+        name, _, path = item.partition("=")
+        if not path:
+            raise SystemExit(f"--extra asteapta nume=cale, am primit: {item}")
+        extras[name] = load_depth(path)
     if not depths:
-        raise SystemExit("nicio harta de adancime: foloseste --depth nume=cale sau --depth-root + --id")
+        raise SystemExit("nicio harta de adancime: foloseste --depth nume=cale, --depth-dir + --id "
+                         "sau --depth-root + --id")
     h, w = rgb.shape[:2]
     camera = _camera(args, w, h)
     placement = Placement(x=args.x if args.x is not None else w / 2, y=args.y if args.y is not None else h / 2,
@@ -104,9 +131,9 @@ def cmd_run(args) -> int:
     gt = load_depth(args.gt) if args.gt else None
     priors = load_priors(args.priors) if args.priors else None
     result = run(rgb, depths, _sprite(args.sprite), placement, camera=camera, priors=priors,
-                 gt_depth=gt, eps=args.eps)
+                 gt_depth=gt, eps=args.eps, extra_depths=extras)
     stem = args.stem or args.id or Path(args.rgb).stem
-    paths = save_outputs(result, rgb, args.out, stem, depths=depths, gt_depth=gt)
+    paths = save_outputs(result, rgb, args.out, stem, depths=depths, gt_depth=gt, extra_depths=extras)
     _print_scores(stem, result)
     print(f"\npanou: {paths['panel_ar']}")
     return 0
@@ -135,6 +162,10 @@ def cmd_check(args) -> int:
         if not path:
             raise SystemExit(f"--depth asteapta nume=cale, am primit: {item}")
         depths[name] = load_depth(path)
+    if args.depth_dir:
+        voters, extras = _flat_depth_maps(args.depth_dir, args.photo)
+        depths.update(voters)
+        depths.update(extras)
     size = (camera.width, camera.height)
     print(f"{args.photo}: {size[0]}x{size[1]} pixeli, distanta focala {camera.fx:.0f} px")
     if pitches:
@@ -148,6 +179,87 @@ def cmd_check(args) -> int:
         print(line)
     if not points:
         print("  niciun punct de control masurat")
+    elif depths:
+        print("  dupa calibrarea pe punctele masurate:")
+        for name, d in depths.items():
+            cal = calibrate_depth(d, points, size)[1]
+            line = f"    {name:<18} {cal.kind}: adevarat = {cal.scale:.2f} x harta {cal.offset:+.2f} m"
+            held_out = leave_one_out(d, points, size)
+            if held_out:
+                line += "   eroare pe punctul lasat deoparte: " + ", ".join(f"{e:+.0%}" for e in held_out)
+            else:
+                line += "   (prea putine puncte pentru o verificare independenta)"
+            print(line)
+    return 0
+
+
+def cmd_batch(args) -> int:
+    """Run every placement listed in a JSON file: {"<image id>": [{"nume", "sprite", "x", "y", "z", "scale"}]}."""
+    plan = json.loads(Path(args.placements).read_text(encoding="utf-8"))
+    priors = load_priors(args.priors) if args.priors else None
+    rows = []
+    for image_id, cases in plan.items():
+        if image_id.startswith("_"):
+            continue
+        found = [p for p in (Path(args.images) / f"{image_id}{ext}" for ext in (".jpg", ".jpeg", ".png")) if p.exists()]
+        if not found:
+            raise SystemExit(f"nu gasesc imaginea {image_id} in {args.images}")
+        rgb = load_rgb(found[0])
+        h, w = rgb.shape[:2]
+        depths, extras = _flat_depth_maps(args.depth_dir, image_id)
+        if not depths:
+            print(f"\n{image_id}: nicio harta de adancime in {args.depth_dir}, sar peste")
+            continue
+        camera = _camera(args, w, h)
+        calibrated = "nu"
+        if args.measurements:
+            points = load_control_points(args.measurements, image_id)[0]
+            if points:
+                # each model is corrected with its own fit on the measured points; route C is
+                # then the median of the corrected maps, as its definition says
+                fits = {}
+                for name in depths:
+                    depths[name], fits[name] = calibrate_depth(depths[name], points, (w, h))
+                if "ruta_C" in extras:
+                    extras["ruta_C"] = np.median(np.stack(list(depths.values())), axis=0).astype(np.float32)
+                calibrated = next(iter(fits.values())).kind
+                print(f"\n{image_id}: calibrat pe {len(points)} puncte masurate ("
+                      + ", ".join(f"{n}: x{c.scale:.2f} {c.offset:+.2f} m" for n, c in fits.items()) + ")")
+        reference = np.median(np.stack(list(depths.values())), axis=0)
+        for case in cases:
+            if "z_intre" in case:   # depth chosen between two things seen in the photo
+                zi = case["z_intre"]
+                near = sample_depth(reference, tuple(zi["fata"]), (w, h))
+                far = sample_depth(reference, tuple(zi["spate"]), (w, h))
+                z = near + float(zi.get("t", 0.5)) * (far - near)
+            else:
+                z = float(case["z"])
+            placement = Placement(x=float(case["x"]), y=float(case["y"]), z=z, scale=float(case.get("scale", 1.0)))
+            result = run(rgb, depths, _sprite(case.get("sprite", "sphere"), case.get("culoare")), placement,
+                         camera=camera, priors=priors, extra_depths=extras)
+            stem = f"{image_id}__{case['nume']}"
+            save_outputs(result, rgb, args.out, stem, depths=depths, extra_depths=extras)
+            _print_scores(stem, result)
+            print(f"  obiect la {z:.2f} m")
+            footprint = int(result.placed.footprint.sum())
+            masks = {**result.model_masks, **{f"ruta_{r}": m for r, m in result.route_masks.items()},
+                     **result.extra_masks}
+            row = {"imagine": image_id, "caz": case["nume"], "calibrat": calibrated, "z_m": round(z, 3),
+                   "pixeli_obiect": footprint,
+                   "dezacord": int(((result.counts > 0) & (result.counts < len(depths))).sum())}
+            row.update({f"ocluzat_{n}": int(m.sum()) for n, m in masks.items()})
+            row["B_soft_difera_de_A"] = int((result.route_masks["B_soft"] != result.route_masks["A"]).sum())
+            rows.append(row)
+    if rows:
+        import csv
+        out = Path(args.out) / "rezumat.csv"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        fields = list(dict.fromkeys(k for r in rows for k in r))
+        with open(out, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fields)
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"\n{len(rows)} cazuri; rezumat in {out}")
     return 0
 
 
@@ -187,7 +299,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--rgb", required=True)
     p.add_argument("--depth", action="append", metavar="NUME=CALE", help="o harta .npy in metri; se poate repeta")
     p.add_argument("--depth-root", help="folder cu <model>/<id>.npy")
-    p.add_argument("--id", help="identificatorul imaginii, pentru --depth-root")
+    p.add_argument("--depth-dir", help="folder cu <id>_<model>.npy, cum scrie depth.run; hartile ruta_* nu voteaza")
+    p.add_argument("--extra", action="append", metavar="NUME=CALE",
+                   help="o harta care primeste masca proprie, dar nu voteaza (ex. ruta_C)")
+    p.add_argument("--id", help="identificatorul imaginii, pentru --depth-root si --depth-dir")
     p.add_argument("--gt", help="adancimea reala (.npy in metri), optional")
     p.add_argument("--priors", help="JSON cu ponderile si erorile modelelor (de la P1)")
     p.add_argument("--sprite", default="sphere")
@@ -212,10 +327,21 @@ def build_parser() -> argparse.ArgumentParser:
     camera_args(p)
     p.set_defaults(func=cmd_preview)
 
+    p = sub.add_parser("batch", help="ruleaza toate plasarile dintr-un fisier JSON, pe mai multe imagini")
+    p.add_argument("--placements", required=True, help="JSON: {id imagine: [{nume, sprite, x, y, z, scale}]}")
+    p.add_argument("--images", required=True, help="folderul cu imagini <id>.jpg / .png")
+    p.add_argument("--depth-dir", required=True, help="folder cu <id>_<model>.npy, cum scrie depth.run")
+    p.add_argument("--priors", help="JSON cu ponderile si erorile modelelor (de la P1)")
+    p.add_argument("--measurements", help="fisierul cu puncte masurate; hartile se calibreaza pe ele, per imagine")
+    p.add_argument("--out", default="outputs/batch")
+    camera_args(p)
+    p.set_defaults(func=cmd_batch)
+
     p = sub.add_parser("check", help="compara hartile de adancime cu punctele masurate cu ruleta pe o poza proprie")
     p.add_argument("--measurements", default="data/photos/masuratori.json")
     p.add_argument("--photo", required=True, help="numele pozei din fisierul de masuratori")
     p.add_argument("--depth", action="append", metavar="NUME=CALE", help="o harta .npy in metri; se poate repeta")
+    p.add_argument("--depth-dir", help="folder cu <poza>_<model>.npy, cum scrie depth.run")
     p.set_defaults(func=cmd_check)
 
     p = sub.add_parser("placements", help="plasari aleatoare reproductibile, dintr-o harta de referinta")

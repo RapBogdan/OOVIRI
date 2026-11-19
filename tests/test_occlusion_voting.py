@@ -122,6 +122,21 @@ def test_vote_count():
     assert vote_count(votes(1, 0, 1))[0, 0] == 2
 
 
+def test_route_c_gives_the_same_mask_as_route_a(placed):
+    """Testing the median depth is the same as letting three depth tests vote.
+
+    The median of three depths is below the object's depth exactly when at least two
+    of them are, so for the occlusion mask route C (median fusion, then one depth test)
+    cannot differ from route A (three depth tests, then a majority vote).
+    """
+    rng = np.random.default_rng(0)
+    depths = [rng.uniform(1.6, 2.2, (480, 640)).astype(np.float32) for _ in range(3)]
+    fused = np.median(np.stack(depths), axis=0)
+    masks = [occlusion_mask(d, placed) for d in depths]
+    assert 0 < majority_vote(masks).sum() < placed.footprint.sum()
+    assert np.array_equal(occlusion_mask(fused, placed), majority_vote(masks))
+
+
 # ---------------------------------------------------------------- scores
 def test_iou_and_f1():
     a = np.array([[1, 1, 0, 0]], bool)
