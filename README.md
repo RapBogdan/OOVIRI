@@ -51,6 +51,36 @@ Albastru = aproape, roșu = departe; aceeași scală de culori în tot panoul.
 
 ![Panou 0003](figures/panel_0003.png)
 
+### Rutele de vot ca hărți de adâncime
+
+Rutele A, B și B-soft votează pe măștile de ocluzie, dar fiecare are o adâncime echivalentă: obiectul virtual e ascuns de rută exact când e mai departe decât ea. Așa le putem compara cu ruta C și cu adevărul.
+
+- **Ruta A:** mediana celor 3 hărți, deci aceeași hartă ca ruta C.
+- **Ruta B:** mediana ponderată, cu ponderile din `config/priors.json`. Cu 3 modele și ponderi apropiate iese tot mediana.
+- **Ruta B-soft:** adâncimea *D* la care votul cu încredere trece de jumătate: Σ wᵢ·σ((D − dᵢ)/τᵢ) = ½·Σ wᵢ, cu τᵢ = AbsRelᵢ·dᵢ, eroarea tipică a modelului. Un model sigur trage *D* spre el.
+
+Măștile obținute din aceste hărți coincid pixel cu pixel cu votul din `ooviri/voting.py`, verificat pe 5 cazuri (NYU și fotografii proprii).
+
+Pe fotografia cu scaunul (`foto_02_scaun_fata`), rândul 1: modelele; rândul 2: adâncimea fiecărei rute:
+
+![Rutele ca hărți de adâncime, scaunul](docs/img/rute_adancime_scaun.png)
+
+A, B și C dau aceeași hartă. B-soft seamănă cu ZoeDepth: are cea mai mare pondere și cea mai mică eroare tipică în `config/priors.json`, deci e cel mai sigur vot acolo unde modelele nu se potrivesc.
+
+Pe o imagine NYU (`0036`) există adevăr, deci fiecare rută primește și AbsRel:
+
+![Rutele ca hărți de adâncime, 0036](docs/img/rute_adancime_0036.png)
+
+A, B și C au AbsRel 0,051, mai bine decât fiecare model (0,054–0,061). B-soft iese puțin mai bine, 0,050. Pe o singură imagine diferența nu spune mult; rămâne de măsurat pe tot setul de test.
+
+Ocluzia pe aceeași poză: o sferă pusă între spătar și perdea, cu hărțile corectate pe ruletă. Rândul 1: fără ocluzie și modelele; rândul 2: rutele:
+
+![Ocluzia cu rutele de vot, scaunul](docs/img/rute_ocluzie_scaun.png)
+
+Spătarul acoperă jumătatea stângă a sferei. Modelele ascund 47-50% din ea și se contrazic doar pe 4% din obiect, deci toate rutele dau 48%. Un caz în care modelele se contrazic mai mult, monitorul, e în Partea P2. Pe fotografii nu există mască de referință, deci nici IoU; evaluarea ocluziei pe NYU urmează.
+
+Figurile vin din `notebooks/depth.ipynb`, care rulează tot lanțul pe o listă de imagini NYU și fotografii proprii.
+
 ### Urmează
 
 - **Evaluarea ocluziei:** IoU și F1 pe măștile obținute cu compunerea P2; ponderile pentru ruta B.
@@ -145,7 +175,7 @@ Setul de test NYU (~1 GB) se descarcă o singură dată în `data/`. Modelele (~
 ```bash
 python -m depth.run data/nyu_test --out outputs   # hărți .npy + PNG + panouri, pe un folder de imagini
 python -m evaluation.run                          # evaluarea pe 654 de imagini -> outputs/eval_depth.csv
-jupyter notebook notebooks/depth.ipynb            # același lucru, interactiv
+jupyter notebook notebooks/depth.ipynb            # interactiv: adâncime, rutele ca hărți, ocluzie (NYU și poze)
 ```
 
 Pe fotografii proprii: un folder cu imagini JPG/PNG, fără `_depth.png` lângă ele; alinierea se face atunci pe ZoeDepth.
@@ -195,7 +225,7 @@ scripts/download_nyu.py  descărcarea setului de date
 scripts/harti_poze.py    hărțile de adâncime ale fotografiilor proprii
 tests/                 teste automate pentru partea P2
 config/priors.json     ponderile și erorile modelelor, pentru rutele B și B-soft
-notebooks/             notebook Jupyter
+notebooks/depth.ipynb  tot lanțul, interactiv, pe imaginile din lista IMAGINI
 figures/, docs/img/    imaginile din README
 data/photos/           fotografiile proprii, măsurătorile și plasările (în Git)
 data/, models/, outputs/  locale, ignorate de Git
